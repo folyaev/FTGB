@@ -96,17 +96,25 @@ def send_random_phrase(update: Update, context: CallbackContext, query: Optional
     context.user_data["shown_examples"] = []
 
     keyboard = [
-        [InlineKeyboardButton("Подсказка 🔥", callback_data="show_example")],
+        [InlineKeyboardButton("Подсказка 🔥", callback_data=f"show_example:{random_phrase}")],
+        [InlineKeyboardButton("Сменить фразу 🔄", callback_data="change_phrase")]  
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if query:
         message = query.message
+        try:
+            message.edit_text(f"<b>{random_phrase}</b>", parse_mode="HTML", reply_markup=reply_markup)
+        except Exception as e:
+            print(f"Error occurred while editing the message: {e}")
     else:
         message = update.message
+        message.reply_text(f"<b>{random_phrase}</b>", parse_mode="HTML", reply_markup=reply_markup)
 
-    message.reply_text(f"<b>{random_phrase}</b>", parse_mode="HTML", reply_markup=reply_markup)
-
+def change_phrase_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    send_random_phrase(None, context, query)
 
 def add_phrase_callback(update: Update, context: CallbackContext) -> None:
     phrase_hash = update.callback_query.data.split(":")[1]
@@ -125,7 +133,10 @@ def add_phrase_callback(update: Update, context: CallbackContext) -> None:
 def show_example_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
-    current_phrase = context.user_data.get("current_phrase", "")
+
+    # Extract the current phrase from the callback data
+    current_phrase = query.data.split(":", 1)[1]
+
     data = read_user_data()
 
     # Filter the data to only include rows that match the current phrase
@@ -133,7 +144,7 @@ def show_example_callback(update: Update, context: CallbackContext) -> None:
 
     # Define the reply_markup variable with the same keyboard as in the send_random_phrase function
     keyboard = [
-        [InlineKeyboardButton("Подсказка 🔥", callback_data="show_example")],
+        [InlineKeyboardButton("Подсказка 🔥", callback_data=f"show_example:{current_phrase}")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -209,8 +220,9 @@ def setup_dispatcher(dispatcher, bot_user_id):
     dispatcher.add_error_handler(error_handler)
     dispatcher.add_handler(CommandHandler("leaderboard", leaderboard_command))
     dispatcher.add_handler(CallbackQueryHandler(leaderboard_callback, pattern="^leaderboard$"))
-    dispatcher.add_handler(CallbackQueryHandler(show_example_callback, pattern="^show_example$"))
+    dispatcher.add_handler(CallbackQueryHandler(show_example_callback, pattern="^show_example:"))
     dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
     dispatcher.add_handler(CallbackQueryHandler(add_phrase_callback, pattern="^add_phrase:"))
+    dispatcher.add_handler(CallbackQueryHandler(change_phrase_callback, pattern="^change_phrase$"))
     dispatcher.add_handler(CommandHandler("add_phrase", add_phrase_command))  # Make sure this line is before the unknown_command MessageHandler
     dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))  # Move this line to the end of setup_dispatcher
