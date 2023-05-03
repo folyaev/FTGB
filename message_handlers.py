@@ -1,10 +1,11 @@
+from typing import Optional
+
+from enum import Enum
 import csv
 import hashlib
 import logging
 import random
 import time
-from enum import Enum
-from typing import Optional
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
@@ -18,6 +19,7 @@ from user_data import save_user_data, read_user_data, generate_leaderboard, phra
 from utils import check_message_length, is_valid_response, get_word_frequencies
 from command_handlers import help_command, leaderboard_command, add_phrase_command, unknown_command
 from inline_handlers import handle_inline_query
+
 
 class CallbackActions(Enum):
     START_GAME = "start_game"
