@@ -1,15 +1,16 @@
+from typing import Optional
+
+from enum import Enum
 import csv
 import hashlib
 import logging
 import random
 import time
-from enum import Enum
-from typing import Optional
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
-from telegram.ext import InlineQueryHandler
+from telegram.ext import InlineQueryHandler, JobQueue
 
 from config import config
 from game_logic import game_state
@@ -18,6 +19,7 @@ from user_data import save_user_data, read_user_data, generate_leaderboard, phra
 from utils import check_message_length, is_valid_response, get_word_frequencies
 from command_handlers import help_command, leaderboard_command, add_phrase_command, unknown_command
 from inline_handlers import handle_inline_query
+
 
 class CallbackActions(Enum):
     START_GAME = "start_game"
@@ -67,7 +69,7 @@ def leaderboard_callback(update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text(leaderboard_text, reply_markup=reply_markup)
 
-def send_random_phrase(update: Update, context: CallbackContext, query: Optional[CallbackQuery] = None) -> None:
+def send_random_phrase(update: Update, context: CallbackContext, query: Optional[CallbackQuery] = None, start_timer: Optional[int] = None) -> None:
     with open("phrases.txt", "r", encoding="utf-8") as file:
         phrases = [line.strip() for line in file.readlines()]
 
@@ -110,6 +112,27 @@ def send_random_phrase(update: Update, context: CallbackContext, query: Optional
     else:
         message = update.message
         message.reply_text(f"<b>{random_phrase}</b>", parse_mode="HTML", reply_markup=reply_markup)
+    
+    if start_timer is not None:
+        context.job_queue.run_once(change_phrase_with_timer, start_timer, context={"chat_id": message.chat_id})
+
+# Create the change_phrase_with_timer function
+def change_phrase_with_timer(context: CallbackContext) -> None:
+    chat_id = context.job.context["chat_id"]
+    message = context.bot.send_message(chat_id, "Смена фразы по таймеру 🔄")
+    send_random_phrase(None, context, message)
+
+# Create the set_timer function to handle the /set_timer command
+def set_timer(update: Update, context: CallbackContext) -> None:
+    if not context.args or not context.args[0].isdigit():
+        update.message.reply_text("Пожалуйста, отправьте количество секунд после команды /set_timer.")
+        return
+
+    seconds = int(context.args[0])
+    update.message.reply_text(f"Таймер установлен на {seconds} секунд. Фразы будут меняться автоматически.")
+
+    # Start the timer by calling send_random_phrase with the start_timer parameter
+    send_random_phrase(update, context, start_timer=seconds)
 
 def change_phrase_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -226,3 +249,4 @@ def setup_dispatcher(dispatcher, bot_user_id):
     dispatcher.add_handler(CallbackQueryHandler(change_phrase_callback, pattern="^change_phrase$"))
     dispatcher.add_handler(CommandHandler("add_phrase", add_phrase_command))  # Make sure this line is before the unknown_command MessageHandler
     dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))  # Move this line to the end of setup_dispatcher
+    dispatcher.add_handler(CommandHandler("set_timer", set_timer))
