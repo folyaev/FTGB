@@ -4,6 +4,24 @@ from telegram.ext import CallbackContext, CommandHandler, MessageHandler, Filter
 from user_data import save_user_data, read_user_data, generate_leaderboard
 from utils import check_message_length, is_valid_response, get_word_frequencies
 
+def settings_command(update: Update, context: CallbackContext) -> None:
+    chat_id = update.effective_chat.id
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Подсказка: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
+        ],
+        [
+            InlineKeyboardButton("Сменить Фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
+        ],
+        [
+            InlineKeyboardButton("Shuffle: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("Настройки:", reply_markup=reply_markup)
+
 def help_command(update: Update, context: CallbackContext) -> None:
     help_text = (
         "При игре в чате – отвечай реплаем\n\n"
