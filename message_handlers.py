@@ -394,13 +394,13 @@ def settings_callback(update: Update, context: CallbackContext) -> None:
 
         keyboard = [
             [
-                InlineKeyboardButton("Подсказки 🔥: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
+                InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
             ],
             [
-                InlineKeyboardButton("Сменить фразу 🔄: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
+                InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
             ],
             [
-                InlineKeyboardButton("Сменить по таймеру ▶️:" + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
+                InlineKeyboardButton("Таймер: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -462,7 +462,7 @@ def game_over_message(update: Update, context: CallbackContext) -> None:
     context.user_data["score"] = 0
     game_over_text = f"{first_name}, ты сделал всё, что мог!\nТвой счёт: {score}"
     keyboard = [
-        [InlineKeyboardButton("🔁 Заново", callback_data="start_game")]
+        [InlineKeyboardButton("Сделать лучше 😎", callback_data="start_game")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 

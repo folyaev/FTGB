@@ -10,13 +10,13 @@ def settings_command(update: Update, context: CallbackContext) -> None:
 
     keyboard = [
         [
-            InlineKeyboardButton("Подсказка: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
+            InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
         ],
         [
-            InlineKeyboardButton("Сменить Фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
+            InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
         ],
         [
-            InlineKeyboardButton("Shuffle: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
+            InlineKeyboardButton("Таймер: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
