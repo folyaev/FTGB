@@ -6,7 +6,7 @@ from utils import check_message_length, is_valid_response, get_word_frequencies
 
 def settings_command(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
-    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
 
     keyboard = [
         [
@@ -21,6 +21,7 @@ def settings_command(update: Update, context: CallbackContext) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("Настройки:", reply_markup=reply_markup)
+
 
 def help_command(update: Update, context: CallbackContext) -> None:
     help_text = (
@@ -59,6 +60,22 @@ def add_phrase_command(update: Update, context: CallbackContext) -> None:
             file.write(phrase.strip() + '\n')  # Add a newline character at the end of each phrase
 
     update.message.reply_text(f"Добавлено!")
+
+def timer_command(update: Update, context: CallbackContext) -> None:
+    try:
+        # Extracting the argument from command
+        input_seconds = int(context.args[0])
+        if input_seconds <= 10:
+            update.message.reply_text("Please enter a number greater than 10.")
+        else:
+            # Fetch the settings data
+            settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
+            # Update the interval
+            settings_data["shuffle_interval"] = input_seconds
+            context.chat_data["settings"] = settings_data
+            update.message.reply_text(f"Shuffle interval updated to {input_seconds} seconds.")
+    except (IndexError, ValueError):
+        update.message.reply_text("Usage: /timer <seconds>")
 
 def unknown_command(update: Update, context: CallbackContext) -> None:
     """Send a message to the user when an unknown command is received."""

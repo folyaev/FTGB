@@ -22,12 +22,10 @@ from game_logic import game_state
 from phrases import phrases
 from user_data import save_user_data, read_user_data, generate_leaderboard, phrase_hash_to_phrase
 from utils import check_message_length, is_valid_response, get_word_frequencies
-from command_handlers import help_command, leaderboard_command, add_phrase_command, settings_command, unknown_command
+from command_handlers import help_command, leaderboard_command, add_phrase_command, settings_command, timer_command, unknown_command
 from inline_handlers import handle_inline_query
 
 from apscheduler.schedulers.background import BackgroundScheduler
-
-shuffle_interval = 10
 
 class CallbackActions(Enum):
     START_GAME = "start_game"
@@ -88,7 +86,7 @@ def get_phrases() -> List[str]:
 def send_random_phrase(user_data: Dict, context: CallbackContext, update: Optional[Update] = None, query: Optional[CallbackQuery] = None, chat_id: Optional[int] = None, start_timer: Optional[int] = None, message: Optional[Message] = None) -> None:
     print("send_random_phrase called")
     user_data["game_over"] = False
-    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
     
     with open("phrases.txt", "r", encoding="utf-8") as file:
         phrases = [line.strip() for line in file.readlines()]
@@ -200,7 +198,7 @@ def change_phrase_with_timer(context: CallbackContext) -> None:
     chat_data = job_context["chat_data"]
     user_data = job_context["user_data"]
 
-    settings_data = chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+    settings_data = chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
     current_phrase = user_data["current_phrase"]
 
     used_phrases = set(user_data.get("used_phrases", []))
@@ -268,7 +266,7 @@ def show_example_callback(update: Update, context: CallbackContext) -> None:
     # Define the reply_markup variable with the same keyboard as in the send_random_phrase function
     keyboard = [
         [
-            InlineKeyboardButton("Подсказка 🔥", callback_data=f"show_example:{current_phrase}"),
+            InlineKeyboardButton("Ещё", callback_data=f"show_example:{current_phrase}"),
             InlineKeyboardButton("Назад", callback_data=f"back_to_main:{current_phrase}"),
         ],
     ]
@@ -303,7 +301,7 @@ def back_to_main_callback(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     current_phrase = query.data.split(":", 1)[1]
-    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
     reply_markup = build_keyboard(reply_markup=None, shuffle_button_text="▶️", shuffle_button_callback_data="shuffle", settings_data=settings_data, current_phrase=current_phrase)
 
     try:
@@ -347,7 +345,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     data = query.data
     chat_id = query.message.chat_id
 
-    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
 
     if data == "start_game":
         send_random_phrase(context.user_data, context=context, update=update, query=query)
@@ -362,7 +360,9 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             print("Starting shuffle")
             context.user_data["shuffle_active"] = True
             user_id = update.effective_user.id
-            job = context.job_queue.run_repeating(change_phrase_with_timer, interval=shuffle_interval, first=0, context={"chat_id": chat_id, "message_id": query.message.message_id, "user_id": user_id, "chat_data": context.chat_data.copy(), "user_data": context.user_data})
+            # Add a default value for `interval` in case "shuffle_interval" doesn't exist in the settings data
+            interval = context.chat_data.get("settings", {}).get("shuffle_interval", 30)
+            job = context.job_queue.run_repeating(change_phrase_with_timer, interval=interval, first=0, context={"chat_id": chat_id, "message_id": query.message.message_id, "user_id": user_id, "chat_data": context.chat_data.copy(), "user_data": context.user_data})
             context.chat_data["shuffle_job"] = job
             query.edit_message_reply_markup(reply_markup=build_keyboard(query.message.reply_markup, shuffle_button_text="⏹️", shuffle_button_callback_data="stop_shuffle", settings_data=settings_data, current_phrase=current_phrase))
 
@@ -373,6 +373,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             if job:
                 job.schedule_removal()
             query.edit_message_reply_markup(reply_markup=build_keyboard(query.message.reply_markup, shuffle_button_text="▶️", shuffle_button_callback_data="shuffle", settings_data=settings_data, current_phrase=current_phrase))
+
 
     elif data.startswith("show_example"):
         phrase = data.split(":")[1]
@@ -386,25 +387,68 @@ def settings_callback(update: Update, context: CallbackContext) -> None:
     query.answer()
     data = query.data
 
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
+
     if data.startswith("toggle_"):
         setting_key = data[7:]
-        settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True})
         settings_data[setting_key] = not settings_data[setting_key]
         context.chat_data["settings"] = settings_data
 
-        keyboard = [
-            [
-                InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
-            ],
-            [
-                InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
-            ],
-            [
-                InlineKeyboardButton("Таймер: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
-            ]
+    # Fetch the latest settings data here.
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
+
+    # Modify the text of the shuffle button based on its status
+    shuffle_text = "Таймер: ✅" if settings_data["shuffle"] else "Таймер: ⬜️"
+
+    keyboard = [
+        [
+            InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "⬜️"), callback_data="toggle_hint")
+        ],
+        [
+            InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "⬜️"), callback_data="toggle_change_phrase")
+        ],
+        [
+            InlineKeyboardButton(shuffle_text, callback_data="toggle_shuffle")
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text("Настройки:", reply_markup=reply_markup)
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text("Настройки:", reply_markup=reply_markup)
+
+
+
+def timer_settings_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": False, "shuffle_interval": 10})
+    
+    keyboard = [
+        [
+             InlineKeyboardButton("Настроить таймер: " + str(settings_data["shuffle_interval"]) + " секунд", callback_data="change_interval")
+        ],
+        [
+            InlineKeyboardButton("Back to settings", callback_data="back_to_settings")
+        ]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text("Настройки Таймера:", reply_markup=reply_markup)
+
+def back_to_settings(update: Update, context: CallbackContext) -> None:
+    settings_callback(update, context)
+
+def message_handler(update: Update, context: CallbackContext) -> None:
+    if context.chat_data.get("awaiting_interval", False):
+        try:
+            new_interval = max(10, int(update.message.text)) # ensure minimum 10 seconds
+            settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": False, "shuffle_interval": 10})
+            settings_data["shuffle_interval"] = new_interval
+            context.chat_data["settings"] = settings_data
+            context.chat_data["awaiting_interval"] = False
+            update.message.reply_text(f"New interval set to {new_interval} seconds")
+        except ValueError:
+            update.message.reply_text("Please enter a valid number")
 
 scheduler = BackgroundScheduler()
 
@@ -454,6 +498,20 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     else:
         print("Invalid response.")
         game_over_message(update, context)
+        
+    if context.chat_data.get("awaiting_interval", False):
+        try:
+            new_interval = int(update.message.text)
+            if new_interval >= 10:  # Check if the new interval is at least 10 seconds
+                context.chat_data["settings"]["shuffle_interval"] = new_interval
+                context.chat_data["awaiting_interval"] = False
+                update.message.reply_text("Интервал перемешивания успешно изменен.")
+            else:
+                update.message.reply_text("Интервал должен быть не менее 10 секунд, попробуйте еще раз.")
+        except ValueError:
+                update.message.reply_text("Неправильный интервал, попробуйте еще раз.")
+        return
+
 
 
 def game_over_message(update: Update, context: CallbackContext) -> None:
@@ -489,11 +547,14 @@ def setup_dispatcher(dispatcher, bot_user_id):
     dispatcher.add_handler(CommandHandler("leaderboard", leaderboard_command))
     dispatcher.add_handler(CallbackQueryHandler(leaderboard_callback, pattern="^leaderboard$"))
     dispatcher.add_handler(CallbackQueryHandler(show_example_callback, pattern="^show_example:"))
+    dispatcher.add_handler(CommandHandler("timer", timer_command))
+    dispatcher.add_handler(CallbackQueryHandler(timer_settings_callback, pattern='^timer_settings$'))
+    dispatcher.add_handler(CallbackQueryHandler(back_to_settings, pattern='^back_to_settings$'))
     dispatcher.add_handler(InlineQueryHandler(handle_inline_query))
     dispatcher.add_handler(CallbackQueryHandler(back_to_main_callback, pattern="^back_to_main:"))
     dispatcher.add_handler(CallbackQueryHandler(add_phrase_callback, pattern="^add_phrase:"))
     dispatcher.add_handler(CallbackQueryHandler(change_phrase_callback, pattern="^change_phrase$"))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
     dispatcher.add_handler(CommandHandler("add_phrase", add_phrase_command))  # Make sure this line is before the unknown_command MessageHandler
-    dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))  # Move this line to the end of setup_dispatcher
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))  # Move this line to the end of setup_dispatcher
     
