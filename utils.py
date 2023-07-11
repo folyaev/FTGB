@@ -9,6 +9,10 @@ def jaccard_similarity(set1: set, set2: set) -> float:
     return intersection_size / union_size
 
 def is_valid_response(user_message: str, current_phrase: str) -> bool:
+    # Check if the user message is not exactly the same as the current phrase
+    if user_message.lower() == current_phrase.lower():
+        return False
+
     if len(user_message) < len(current_phrase):
         return False
 
@@ -20,6 +24,7 @@ def is_valid_response(user_message: str, current_phrase: str) -> bool:
     matching_percentage = (matching_chars / len(phrase_chars)) * 100
 
     return matching_percentage >= 50
+
 
 def get_word_frequencies() -> dict:
     data = read_user_data()

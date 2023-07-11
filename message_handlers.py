@@ -281,11 +281,14 @@ def add_phrase_callback(update: Update, context: CallbackContext) -> None:
         update.callback_query.answer(text="Произошла ошибка. Попробуйте еще раз.")
         return
 
-    del context.bot_data[phrase_hash]
+    with open("phrases.txt", "a", encoding="utf-8") as file:
+        file.write(new_phrase + '\n')  # Add the new phrase to the file
 
+    del context.bot_data[phrase_hash]
 
     update.callback_query.answer()
     update.callback_query.edit_message_text(text=f"«{new_phrase}» добавлено в базу и скоро будет доступно!", reply_markup=None)
+
 
 def show_example_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -574,7 +577,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         print(f"Checking for accepted challenge. Reply message ID: {update.message.reply_to_message.message_id}, accepted challenge ID: {context.chat_data.get('accepted_challenge_id')}")
 
     elif check_message_length(message_text, current_phrase):
-        print("Message length check failed.")
+        print("User typed the same word.")
         update.message.reply_text("Хорошая попытка, но нет.")
     else:
         print("Invalid response.")

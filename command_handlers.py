@@ -52,11 +52,11 @@ def leaderboard_command(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(leaderboard_text, reply_markup=reply_markup)
 
 def add_phrase_command(update: Update, context: CallbackContext) -> None:
-    phrase = context.bot_data.get(phrase_hash)
-    new_phrases = update.message.text[12:].strip().replace('\n', ' ')  # Extract new phrases
-    if not new_phrases:
+    new_phrases = update.message.text.split(' ', 1)  # Split the command from the arguments
+    if len(new_phrases) < 2:
         update.message.reply_text("Введите фразу после команды /add_phrase.")
         return
+    new_phrases = new_phrases[1]  # Get the phrases part
 
     with open("phrases.txt", "a", encoding="utf-8") as file:
         phrases = new_phrases.split(',')
@@ -64,6 +64,7 @@ def add_phrase_command(update: Update, context: CallbackContext) -> None:
             file.write(phrase.strip() + '\n')  # Add a newline character at the end of each phrase
 
     update.message.reply_text(f"Добавлено!")
+
 
 def timer_command(update: Update, context: CallbackContext) -> None:
     try:
