@@ -6,21 +6,25 @@ from utils import check_message_length, is_valid_response, get_word_frequencies
 
 def settings_command(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
-    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10})
+    settings_data = context.chat_data.get("settings", {"hint": True, "change_phrase": True, "shuffle": True, "shuffle_interval": 10, "additional_challenge": False})
 
     keyboard = [
         [
-            InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "❌"), callback_data="toggle_hint")
+            InlineKeyboardButton("Подсказки: " + ("✅" if settings_data["hint"] else "⬜️"), callback_data="toggle_hint")
         ],
         [
-            InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "❌"), callback_data="toggle_change_phrase")
+            InlineKeyboardButton("Сменить фразу: " + ("✅" if settings_data["change_phrase"] else "⬜️"), callback_data="toggle_change_phrase")
         ],
         [
-            InlineKeyboardButton("Таймер: " + ("✅" if settings_data["shuffle"] else "❌"), callback_data="toggle_shuffle")
+            InlineKeyboardButton("Таймер: " + ("✅" if settings_data["shuffle"] else "⬜️"), callback_data="toggle_shuffle")
+        ],
+        [
+            InlineKeyboardButton("Additional Challenge: " + ("✅" if settings_data["additional_challenge"] else "⬜️"), callback_data="toggle_additional_challenge")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("Настройки:", reply_markup=reply_markup)
+
 
 
 def help_command(update: Update, context: CallbackContext) -> None:
