@@ -1,9 +1,6 @@
 import ast
 import sys
 import os
-import importlib
-from pathlib import Path
-
 
 class DefinitionCollector(ast.NodeVisitor):
     def __init__(self):

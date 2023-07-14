@@ -1,8 +1,7 @@
-import csv
 import hashlib
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from telegram import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import CallbackContext, InlineQueryHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineQueryResultArticle, InputTextMessageContent
+from telegram.ext import CallbackContext
 from user_data import read_user_data
 
 phrase_hash_to_phrase = {}

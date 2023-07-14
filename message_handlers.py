@@ -1,30 +1,16 @@
-from typing import Dict, Optional, List
-
-from enum import Enum
 import csv
-import hashlib
 import logging
-import random
-import time
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from telegram import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
-from telegram import Message, MessageEntity, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
-from telegram.ext import InlineQueryHandler, JobQueue
+from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+from telegram.ext import InlineQueryHandler
 
-from telegram.error import BadRequest
-
-from config import config
-
-from game_logic import CallbackActions, game_state, start_game, start_game_callback, change_phrase_callback, add_phrase_callback, show_example_callback, back_to_main_callback, button_callback, handle_message, game_over_message
-from phrases import phrases
-from user_data import save_user_data, read_user_data, generate_leaderboard, phrase_hash_to_phrase
-from utils import check_message_length, is_valid_response, get_word_frequencies
-from command_handlers import help_command, leaderboard_command, add_phrase_command, settings_command, timer_command, unknown_command
+from game_logic import CallbackActions, start_game_callback, change_phrase_callback, add_phrase_callback, show_example_callback, back_to_main_callback, button_callback, handle_message
+from user_data import read_user_data, generate_leaderboard
+from command_handlers import help_command, leaderboard_command, add_phrase_command, settings_command, timer_command
 from inline_handlers import handle_inline_query
-from keyboard_handlers import get_start_game_markup, build_keyboard, settings_callback, timer_settings_callback, back_to_settings
+from keyboard_handlers import get_start_game_markup, settings_callback, timer_settings_callback, back_to_settings
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
