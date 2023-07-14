@@ -25,21 +25,20 @@ class GameState:
 
 game_state = GameState()
 
-def start_game(update: Update, context: CallbackContext) -> None:
+def handle_callback_and_send_phrase(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     send_random_phrase(context.user_data, context=context, update=update, query=query)
+
+def start_game(update: Update, context: CallbackContext) -> None:
+    handle_callback_and_send_phrase(update, context)
 
 def start_game_callback(update: Update, context: CallbackContext) -> None:
     print("start_game_callback called")
-    query = update.callback_query
-    query.answer()
-    send_random_phrase(context.user_data, context=context, update=update, query=query)
+    handle_callback_and_send_phrase(update, context)
 
 def change_phrase_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    send_random_phrase(context.user_data, context=context, update=update, query=query)
+    handle_callback_and_send_phrase(update, context)
 
 def send_random_phrase(user_data: Dict, context: CallbackContext, update: Optional[Update] = None, query: Optional[CallbackQuery] = None, chat_id: Optional[int] = None, start_timer: Optional[int] = None, message: Optional[Message] = None) -> None:
     print("send_random_phrase called")
