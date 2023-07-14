@@ -25,7 +25,6 @@ def is_valid_response(user_message: str, current_phrase: str) -> bool:
 
     return matching_percentage >= 50
 
-
 def get_word_frequencies() -> dict:
     data = read_user_data()
     word_frequencies = {}
