@@ -1,9 +1,10 @@
 from typing import Dict, Optional, List
-from telegram import Message
+from telegram import Message, MessageEntity, ReplyMarkup
 
 import random
 import logging
 from telegram import Update, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+import telegram
 from telegram.ext import CallbackContext
 from telegram.error import BadRequest
 from config import config
@@ -338,7 +339,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
     elif data.startswith("show_example"):
         phrase = data.split(":")[1]
-        send_example(update, context, phrase)
+        show_example_callback(update, context, phrase)
 
     elif data == "change_phrase":
         send_random_phrase(context.user_data, query=query)
@@ -433,7 +434,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
                 message_id=update.message.message_id,
                 text=f"{update.message.text}\n\nChallenge accepted!",
                 parse_mode="HTML",
-                reply_markup=reply_markup
+                reply_markup=ReplyMarkup
         )
         except telegram.error.BadRequest as e:
             if str(e) != "Message is not modified":
