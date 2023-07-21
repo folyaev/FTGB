@@ -1,7 +1,7 @@
 from user_data import read_user_data
 
 def check_message_length(message_text: str, current_phrase: str) -> bool:
-    return len(message_text) == len(current_phrase)
+    return len(message_text) != len(current_phrase)
 
 def jaccard_similarity(set1: set, set2: set) -> float:
     intersection_size = len(set1.intersection(set2))

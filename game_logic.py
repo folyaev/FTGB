@@ -13,6 +13,9 @@ from utils import read_user_data, check_message_length, is_valid_response, get_w
 from user_data import save_user_data
 from keyboard_handlers import get_start_game_markup, build_keyboard
 from callback_actions import CallbackActions, AdditionalChallengeStatus
+from random_phrase import generate_random_phrase
+from message_handling import send_or_edit_message
+from challenge_logic import handle_additional_challenge
 
 class GameState:
     def __init__(self):
@@ -42,6 +45,17 @@ def change_phrase_callback(update: Update, context: CallbackContext) -> None:
     handle_callback_and_send_phrase(update, context)
 
 def send_random_phrase(user_data: Dict, context: CallbackContext, update: Optional[Update] = None, query: Optional[CallbackQuery] = None, chat_id: Optional[int] = None, start_timer: Optional[int] = None, message: Optional[Message] = None) -> None:
+    """
+    Send a random phrase to the chat.
+
+    :param user_data: The user's data.
+    :param context: The CallbackContext provided by the python-telegram-bot library.
+    :param update: The Update object provided by the python-telegram-bot library.
+    :param query: The CallbackQuery object provided by the python-telegram-bot library.
+    :param chat_id: The ID of the chat where the random phrase should be sent.
+    :param start_timer: The number of seconds to start a timer for changing the phrase.
+    :param message: The Message object provided by the python-telegram-bot library.
+    """
     print("send_random_phrase called")
     user_data["game_over"] = False
     user_data["additional_challenge_status"] = AdditionalChallengeStatus.NONE.value
@@ -68,7 +82,7 @@ def send_random_phrase(user_data: Dict, context: CallbackContext, update: Option
         context.chat_data.pop("shuffle_job", None)
         user_data["shuffle_active"] = False
 
-    random_phrase = random.choice(sorted_phrases[:1000])
+    random_phrase = generate_random_phrase(phrases, used_phrases)
 
     # Add this block of code
     if query:
@@ -107,29 +121,6 @@ def send_random_phrase(user_data: Dict, context: CallbackContext, update: Option
     if start_timer:
         context.job_queue.run_once(change_phrase_with_timer, start_timer, context={"chat_id": chat_id, "message_id": message.message_id, "timer": start_timer})  # Pass the message_id here
 
-
-    if query:
-        print("query is not None")
-        chat_id = query.message.chat_id
-        new_message_content = f"<b>{random_phrase}</b>"
-        old_message_content = query.message.text
-
-        # Check if message content or reply_markup will be different after edit
-        if new_message_content != old_message_content or reply_markup != query.message.reply_markup:
-            try:
-                context.bot.edit_message_text(chat_id=chat_id, message_id=query.message.message_id, text=new_message_content, parse_mode="HTML", reply_markup=reply_markup)
-            except telegram.error.BadRequest as e:
-                if str(e) != "Message is not modified":
-                    print(f"Error occurred while sending the message text: {e}")
-        else:
-            print("Skipping message edit because content and reply_markup would not be modified")
-    else:
-        if update is None:
-            message = None
-        else:
-            message = update.message
-        message.reply_text(f"<b>{random_phrase}</b>", parse_mode="HTML", reply_markup=reply_markup)
-
     if query:
         print("query is not None")
         chat_id = query.message.chat_id
@@ -140,16 +131,14 @@ def send_random_phrase(user_data: Dict, context: CallbackContext, update: Option
     else:
     # If no query, update or message was passed, raise an exception or handle the situation in a suitable way.
         raise ValueError("chat_id could not be determined because no query, update or message was provided.")
-
     
-    if settings_data.get("additional_challenge", False):
-        with open("challenges.txt", "r", encoding="utf-8") as file:
-            challenges = [line.strip() for line in file.readlines()]
-        random_challenge = random.choice(challenges)
-        # Add a new InlineKeyboardButton for accepting the challenge
-        accept_challenge_button = InlineKeyboardButton("Accept ⬜️", callback_data="accept_challenge")
-        challenge_markup = InlineKeyboardMarkup([[accept_challenge_button]])
-        sent_message = context.bot.send_message(chat_id, f"<i>{random_challenge}</i>", parse_mode="HTML", reply_markup=challenge_markup)
+    if query:
+        message_id = send_or_edit_message(update, context, chat_id, query.message.message_id, f"<b>{random_phrase}</b>", reply_markup, parse_mode='HTML')
+    else:
+        message_id = send_or_edit_message(update, context, chat_id, None, f"<b>{random_phrase}</b>", reply_markup, parse_mode='HTML')
+
+    # Handle the additional challenge
+    handle_additional_challenge(update, context, chat_id)
     
     print(f"New random phrase: {random_phrase}")  # Debugging print
 
@@ -259,6 +248,11 @@ def back_to_main_callback(update: Update, context: CallbackContext) -> None:
         print(f"Error occurred while editing the message: {e}")
 
 def change_phrase_with_timer(context: CallbackContext) -> None:
+    """
+    Change the phrase after a certain interval.
+
+    :param context: The CallbackContext provided by the python-telegram-bot library.
+    """
     job_context = context.job.context
     chat_id = job_context["chat_id"]
     message_id = job_context["message_id"]
@@ -385,19 +379,19 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if is_valid_response(message_text, current_phrase):
         score = context.user_data.get("score", 0) + 1
         print(f"About to add regular point. Current score: {score-1}.")
-    
-        # Check if the user has accepted an additional challenge
+
+    # Check if the user has accepted an additional challenge
         if accepted_challenge_info == (AdditionalChallengeStatus.ACCEPTED.value, update.message.reply_to_message.message_id):
             print("Inside condition block: accepted_challenge_info =", accepted_challenge_info)
             score += 1
             print("Additional challenge point added. Score is now {}.".format(score))
-    
-        # Reset the challenge status and ID, regardless of whether the user got an additional point
+
+    # Reset the challenge status and ID, regardless of whether the user got an additional point
         context.user_data["additional_challenge_status"] = AdditionalChallengeStatus.NONE.value
         context.user_data["accepted_challenge_id"] = None
 
         print("After condition check: accepted_challenge_info =", accepted_challenge_info)
-    
+
         context.user_data["score"] = score
         save_user_data(username, current_phrase, message_text, score)  # Save the score after adjusting for the additional challenge
         print("Regular point added. Score is now {}.".format(score))
@@ -407,18 +401,20 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             context.chat_data.pop("shuffle_job", None)
             context.user_data["shuffle_active"] = False
 
-         # Call the send_random_phrase function when a valid answer is detected
+    # Call the send_random_phrase function when a valid answer is detected
         send_random_phrase(context.user_data, context=context, update=update)
 
-        # Remove all inline buttons from the message after a valid answer
+    # Remove all inline buttons from the message after a valid answer
         if update.message.reply_to_message.reply_markup:
-            update.message.reply_to_message.edit_reply_markup(reply_markup=None)
-        print(f"Checking for accepted challenge. Current status: {context.chat_data.get('additional_challenge_status', AdditionalChallengeStatus.NONE.value)}, expected status: {AdditionalChallengeStatus.ACCEPTED.value}")
-        print(f"Checking for accepted challenge. Reply message ID: {update.message.reply_to_message.message_id}, accepted challenge ID: {context.chat_data.get('accepted_challenge_id')}")
+            context.bot.edit_message_reply_markup(chat_id=update.effective_chat.id, message_id=update.message.reply_to_message.message_id, reply_markup=None)
+
+        print(f"Checking for accepted challenge. Current status: {context.user_data.get('additional_challenge_status', AdditionalChallengeStatus.NONE.value)}, expected status: {AdditionalChallengeStatus.ACCEPTED.value}")
+        print(f"Checking for accepted challenge. Reply message ID: {update.message.reply_to_message.message_id}, accepted challenge ID: {context.user_data.get('accepted_challenge_id')}")
 
     elif check_message_length(message_text, current_phrase):
         print("User typed the same word.")
-        update.message.reply_text("Хорошая попытка, но нет.")
+        send_or_edit_message(update, context, update.effective_chat.id, None, "Хорошая попытка, но нет.", None)
+
     else:
         print("Invalid response.")
         game_over_message(update, context)
@@ -451,8 +447,8 @@ def game_over_message(update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Stop shuffle if it's active
-    if context.chat_data.get("shuffle_status", False):
-        context.chat_data["shuffle_status"] = False
+    if context.user_data.get("shuffle_active", False):
+        context.user_data["shuffle_active"] = False
         job = context.chat_data.pop("shuffle_job", None)
         if job:
             job.schedule_removal()
